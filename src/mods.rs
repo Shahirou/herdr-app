@@ -1024,6 +1024,8 @@ fn module(inst: Instance, copy: u64) -> HostModule {
         commands.retain(|(_, _, tx)| !tx.is_closed());
         commands.push((copy, inst.name.clone(), cmd_tx));
     });
+    // Programs this copy spawn()ed; they end when the copy's module is dropped.
+    let procs = std::sync::Arc::new(crate::mod_process::Owner::default());
     HostModule::new("herdr")
         .declarations(DECLARATIONS)
         .async_function("exec", |a| {
@@ -1247,6 +1249,47 @@ fn module(inst: Instance, copy: u64) -> HostModule {
             let rx = commands.clone();
             Ok(async move { rx.recv().await.map(HostValue::Str).map_err(|_| HostError::new("herdr-app is shutting down")) })
         })
+        .function("spawn", {
+            let procs = procs.clone();
+            move |a| {
+                let command = a.string(0)?.to_owned();
+                if checking() { return Err(HostError::new("spawn is off while checking")); }
+                let env = a.get(2).and_then(|o| o.get("env")).map(from_host).and_then(|v| v.as_object().cloned()).unwrap_or_default()
+                    .into_iter().filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_owned()))).collect();
+                let id = crate::mod_process::spawn(&procs, &command, &strings(a.get(1)), opt_str(a.get(2), "cwd"), env).map_err(HostError::new)?;
+                Ok(HostValue::Number(id as f64))
+            }
+        })
+        .async_function("readProcess", |a| {
+            let id = process_id(a.get(0))?;
+            let next = crate::mod_process::read(id).map_err(HostError::new)?;
+            Ok(async move {
+                Ok(match next.await {
+                    None => HostValue::Null,
+                    Some(b) => to_host(&json!({ "lines": b.out, "stderr": b.err, "exit": b.exit })),
+                })
+            })
+        })
+        .function("writeProcess", |a| {
+            crate::mod_process::write(process_id(a.get(0))?, a.string(1)?.to_owned()).map_err(HostError::new)?;
+            Ok(HostValue::Null)
+        })
+        .function("closeProcessInput", |a| {
+            crate::mod_process::close_input(process_id(a.get(0))?);
+            Ok(HostValue::Null)
+        })
+        .function("killProcess", move |a| {
+            let _owner = &procs;
+            crate::mod_process::kill(process_id(a.get(0))?);
+            Ok(HostValue::Null)
+        })
+}
+
+fn process_id(v: Option<&HostValue>) -> Result<u64, HostError> {
+    match v {
+        Some(HostValue::Number(n)) if n.is_finite() && *n >= 1.0 => Ok(*n as u64),
+        _ => Err(HostError::new("expected a process id from spawn()")),
+    }
 }
 
 /// The runtime's base layer, themed from settings.json.

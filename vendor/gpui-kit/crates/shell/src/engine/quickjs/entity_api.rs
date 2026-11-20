@@ -386,6 +386,19 @@ pub fn install(ctx: &Ctx<'_>, module: &Object<'_>, runtime: Weak<ShellRuntime>) 
         }),
     )?;
 
+    // HERDR: chat composers send on Enter and take a newline on Shift+Enter.
+    let submit_runtime = runtime.clone();
+    globals.set(
+        "__textarea_set_submit_on_enter",
+        Func::from(move |ctx: Ctx<'_>, handle: EntityHandle, submit: bool| -> JsResult<()> {
+            let state = live_textarea(&ctx, &submit_runtime, handle)?;
+            scope::with_current_app(|cx| {
+                state.update(cx, |state, cx| state.set_submit_on_enter(submit, cx));
+            })
+            .ok_or_else(|| needs_call(&ctx, "set_submit_on_enter()"))
+        }),
+    )?;
+
     let wrap_runtime = runtime.clone();
     globals.set(
         "__textarea_set_soft_wrap",

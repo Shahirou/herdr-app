@@ -1,6 +1,15 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme, spaces, panes, knownAgents, run, openOverlay, closeOverlay, props, window, keys, shared, setShared } from "herdr";
+import { randomUUID } from "crypto";
+
+/** A Claude Code chat (the chat mod) in a new tab, in the focused terminal's folder. */
+function openChat(space) {
+  const folder = (space?.machine ? null : panes().find(p => p.focused)?.cwd) ?? space?.folder ?? null;
+  run("tab.new", { name: "Claude", space: space?.id, mod: "chat", props: { chat: randomUUID(), folder } });
+  // The new tab has focus: its pane frame says "Claude Code" rather than the mod's name.
+  run("pane.rename", { name: "Claude Code" });
+}
 
 // The last agents each machine reported, shown at once while knownAgents() checks again.
 const KNOWN = "new-menu.agents";
@@ -50,7 +59,7 @@ export default class NewMenu extends View {
     const space = spaces().find(s => s.active);
     const installed = this.agents.filter(a => a.installed);
     const choices = this.failed ? installed : [...installed, ...this.agents.filter(a => !a.installed).slice(0, 2)];
-    return v_flex().min_h(0).w_full().h(Math.min(491, 167 + Math.max(1, choices.length + (this.failed ? 1 : 0)) * 31)).bg(t.popover).p(5).text_size(12.8)
+    return v_flex().min_h(0).w_full().h(Math.min(522, 198 +Math.max(1, choices.length + (this.failed ? 1 : 0)) * 31)).bg(t.popover).p(5).text_size(12.8)
       .id("new-menu").track_focus(this.handle)
       .on_key_down((e) => {
         if (e.modifiers.control || e.modifiers.platform || e.modifiers.alt) return;
@@ -60,6 +69,7 @@ export default class NewMenu extends View {
         run("tab.new", { name: agent.name, space: space?.id, argv: agent.run });
       })
       .child(this.row("terminal", svg("icons/shell.svg").size(14), "Terminal", () => run("tab.new", { space: space?.id }), shortcut("tab.new")))
+      .child(this.row("claude-chat", image("icons/claude.svg").size(14), "Claude chat", () => openChat(space), "", !space?.machine))
       .child(div().px(9).pt(8).pb(4).text_size(11).text_color(t.dim).child("Start an agent"))
       .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar()
         .children(choices.map((a, i) => this.row(a.key, a.tint ? svg(a.icon).size(14).text_color(t.foreground) : image(a.icon).size(14), a.name,

@@ -3187,6 +3187,8 @@ const BASE: &str = r#"  /** A row. */
     set_auto_grow(min_rows: number, max_rows: number): void;
     /** Wraps long lines instead of scrolling sideways. Default is on. */
     set_soft_wrap(wrap: boolean): void;
+    /** Enter emits `submit` instead of a newline; Shift+Enter still inserts one. Default is off. */
+    set_submit_on_enter(submit: boolean): void;
     /** Moves the keyboard onto the textarea. */
     focus(): void;
     release(): boolean;
