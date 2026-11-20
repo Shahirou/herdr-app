@@ -1,6 +1,16 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
+import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
+import { randomUUID } from "crypto";
+
+/** A new Claude Code chat tab (the chat mod) in the focused terminal's folder; new-menu has the same. */
+function openChat() {
+  const space = spaces().find(s => s.active);
+  if (space?.machine) return; // the chat runs claude on this computer only
+  const folder = panes().find(p => p.focused)?.cwd ?? space?.folder ?? null;
+  run("tab.new", { name: "Claude", space: space?.id, mod: "chat", props: { chat: randomUUID(), folder } });
+  run("pane.rename", { name: "Claude Code" });
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -28,12 +38,16 @@ function label(tab, lead) {
 }
 
 export default class Tabs extends View {
-  init() {
+  init(_props, cx) {
     this.pressed = null;
     this.scroll = ScrollHandle.new();
     try { this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}"); } catch { this.panels = {}; }
     if (!this.panels || typeof this.panels !== "object" || Array.isArray(this.panels)) this.panels = {};
     this.swipe = { acc: 0, steps: 0, at: 0, last: 0 };
+    // keys.json: "ctrl-shift-a": "tabs.chat"
+    cx.spawn(async () => {
+      for (;;) if (await nextCommand() === "chat") openChat();
+    });
   }
 
   // One tab per wheel notch. A touchpad or smooth-scrolling mouse sends many
@@ -147,7 +161,8 @@ export default class Tabs extends View {
       .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().track_scroll(this.scroll)
         .on_size_change((_size, cx) => { if (active >= 0) { this.scroll.scroll_to_item(active); cx.notify(); } })
         .children(shown.map(item)))
-      .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
+      .when(!space?.machine, el => el.child(button("tab-chat", image("icons/claude.svg").size(15), openChat)))
+      .child(button("tab-new", "+",() => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
       .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/files/file.svg")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs/win-min.svg").size(16) : "−", () => run("window.minimize")))

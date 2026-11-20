@@ -1188,7 +1188,8 @@ All of it is in `herdr.d.ts`. In short:
   `writeProcess(id, "text\n")` writes to its stdin, `closeProcessInput(id)` ends it, `killProcess(id)`
   stops it. The program belongs to the copy: closing the pane or reloading the mod ends it.
   `exec` is for programs that finish.
-- `chat`: a Claude Code chat pane (the + menu's Claude chat). It runs `claude` headless
+- `chat`: a Claude Code chat pane (the tab bar's Claude button, the + menu's Claude chat,
+  or `tabs.chat`, bound to `ctrl-shift-a`). It runs `claude` headless
   (stream-json) in props `folder` and keeps its session per props (`{ chat: "<unique id>", folder }`),
   resuming it after a restart: `run("tab.new", { name: "Claude", mod: "chat", props: { chat, folder } })`.
 
