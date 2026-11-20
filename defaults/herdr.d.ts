@@ -13,6 +13,26 @@ export interface ExecResult {
  *  Rejects when it can't start (not installed, no such folder, the machine is unreachable). */
 export function exec(command: string, args?: string[], options?: { cwd?: string; on?: string | null; timeout?: number }): Promise<ExecResult>;
 
+/** Starts a long-running program on this machine with piped stdio and returns its id; read
+ *  its output with readProcess and write to it with writeProcess while it runs. It belongs to
+ *  this mod copy: closing the copy (its pane, a reload) ends it and what it started.
+ *  On Windows a bare name also finds `.cmd`/`.bat` files on PATH (their arguments can't hold
+ *  cmd.exe syntax). `env` adds variables. Throws when it can't start. */
+export function spawn(command: string, args?: string[], options?: { cwd?: string; env?: Record<string, string> }): number;
+
+/** The output since the last call: waits for at least one line. `lines` (stdout) and `stderr`
+ *  without line endings; `exit` is set once the program ended. After that: null. */
+export function readProcess(id: number): Promise<{ lines: string[]; stderr: string[]; exit: number | null } | null>;
+
+/** Writes text to the program's stdin (add "\n" yourself). Throws once it stopped reading. */
+export function writeProcess(id: number, text: string): null;
+
+/** Closes the program's stdin: tells it the input ended. */
+export function closeProcessInput(id: number): null;
+
+/** Ends the program and what it started. */
+export function killProcess(id: number): null;
+
 /** Runs `hc` (herdr-core) with the given arguments. Add "--json" for machine output. */
 export function hc(args: string[]): Promise<ExecResult>;
 

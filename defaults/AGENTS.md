@@ -1183,6 +1183,14 @@ All of it is in `herdr.d.ts`. In short:
 - This copy: `props()`, `shared(key)` / `setShared(key, value)` (every mod
   sees it; setting re-renders all), `nextCommand()` (key commands for this
   mod: `cx.spawn(async (cx) => { for (;;) { const c = await nextCommand(); …; cx.notify(); } })`).
+- Long-running programs (this machine): `const id = spawn(cmd, args, { cwd, env })`, then
+  `cx.spawn(async (cx) => { for (;;) { const b = await readProcess(id); if (!b) break; … b.lines, b.stderr, b.exit; cx.notify(); } })`.
+  `writeProcess(id, "text\n")` writes to its stdin, `closeProcessInput(id)` ends it, `killProcess(id)`
+  stops it. The program belongs to the copy: closing the pane or reloading the mod ends it.
+  `exec` is for programs that finish.
+- `chat`: a Claude Code chat pane (the + menu's Claude chat). It runs `claude` headless
+  (stream-json) in props `folder` and keeps its session per props (`{ chat: "<unique id>", folder }`),
+  resuming it after a restart: `run("tab.new", { name: "Claude", mod: "chat", props: { chat, folder } })`.
 
 Mods are trusted code: commands and network access (including `fetch`) are unrestricted.
 Other built-ins: `localStorage` (shared by mod and props), `console.log`, `fetch`,
